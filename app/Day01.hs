@@ -1,7 +1,7 @@
 module Day01 where
 
 import RIO
-import Control.Applicative
+import Control.Applicative ( Alternative(empty) )
 -- import RIO.Prelude.Types (Alternative)
 import qualified RIO.Text as Text
 import qualified RIO.Set as Set
