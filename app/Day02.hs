@@ -1,8 +1,8 @@
 module Day02 where
 
-import RIO hiding (many)
+import RIO
 import RIO.Char ( isLetter )
-
+import Data.Bits ( xor )
 import qualified RIO.Text as Text
 import Text.Megaparsec
     ( parse,
@@ -33,7 +33,8 @@ passwordEntry = do
     maxAmount <- integer
     charSpec <- letter
     _ <- symbol ":"
-    PasswordEntry minAmount maxAmount charSpec <$> word
+    password <- word
+    return PasswordEntry{..}
     where symbol = L.symbol hspace
           integer = L.lexeme hspace L.decimal
           letter = L.lexeme hspace letterChar
@@ -54,9 +55,6 @@ readData = do
 validEntry1 :: PasswordEntry -> Bool
 validEntry1 PasswordEntry{..} = count >= minAmount && count <= maxAmount
     where count = Text.length (Text.filter (== charSpec) password)
-
-xor :: Bool -> Bool -> Bool
-xor a b = (a || b) && not (a && b)
 
 validEntry2 :: PasswordEntry -> Bool
 validEntry2 PasswordEntry{..} = (ref1 == charSpec) `xor` (ref2 == charSpec)
