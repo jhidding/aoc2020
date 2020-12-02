@@ -1,0 +1,10 @@
+cradle:
+  cabal:
+    - path: "app/Main.hs"
+      component: "x2020:exe:x2020"
+
+    - path: "app/Day01.hs"
+      component: "x2020:exe:x2020"
+
+    - path: "app/Day02.hs"
+      component: "x2020:exe:x2020"
