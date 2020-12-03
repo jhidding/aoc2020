@@ -3,6 +3,7 @@ module Day03 where
 import RIO
 import Data.Ratio ( denominator, numerator, (%) )
 import qualified RIO.List as List
+import qualified RIO.List.Partial as List.Partial
 import qualified RIO.Text as Text
 import qualified RIO.Vector.Unboxed as UVector
 import qualified RIO.Vector.Unboxed.Partial as UVector.Partial
@@ -15,14 +16,13 @@ readData = List.cycle . map convertLine . transposeLines <$> readFileUtf8 "data/
           transposeLines text = List.transpose (map Text.unpack $ Text.lines text)
 
 countTrees :: TreeMap -> Rational -> Int
-countTrees trees frac = countTrees' trees 0 0
-    where countTrees' (row : trees) loc cnt
-            | loc >= fromIntegral (UVector.length row)  = cnt
-            | otherwise                  = countTrees' trees (loc + frac) (cnt + isTree row loc)
-          isTree row loc
-            | denominator loc == 1       = if row UVector.Partial.! fromIntegral (numerator loc)
-                                           then 1 else 0
-            | otherwise                  = 0
+countTrees trees frac = sum $ zipWith isTree trees yPos
+    where isTree row loc
+            | denominator loc == 1 && row UVector.Partial.! idx = 1
+            | otherwise                                         = 0
+            where idx = fromIntegral (numerator loc)
+          yPos = List.takeWhile (< fromIntegral n) $ List.iterate (+ frac) 0
+          n = UVector.length $ List.Partial.head trees
 
 runA :: (HasLogFunc env) => RIO env ()
 runA = do
