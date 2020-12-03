@@ -6,11 +6,13 @@ import Options.Applicative
 
 import qualified Day01
 import qualified Day02
+import qualified Day03
 
 solutions :: HasLogFunc env => Map Int (RIO env (), RIO env ())
 solutions = Map.fromList
     [ (1, (Day01.runA, Day01.runB))
-    , (2, (Day02.runA, Day02.runB)) ]
+    , (2, (Day02.runA, Day02.runB))
+    , (3, (Day03.runA, Day03.runB)) ]
 
 newtype CommandArgs = CommandArgs
     { dayArg :: Maybe Int }

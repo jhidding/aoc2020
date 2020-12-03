@@ -28,6 +28,8 @@ executable x2020
     other-modules:
                       Day01
                       Day02
+                      Day03
+                      DayXX
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
