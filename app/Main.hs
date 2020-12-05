@@ -7,22 +7,29 @@ import Options.Applicative
 import qualified Day01
 import qualified Day02
 import qualified Day03
+import qualified Day04
+import qualified Day05
 
-solutions :: HasLogFunc env => Map Int (RIO env (), RIO env ())
+solutions :: Map Int (RIO SimpleApp (), RIO SimpleApp ())
 solutions = Map.fromList
     [ (1, (Day01.runA, Day01.runB))
     , (2, (Day02.runA, Day02.runB))
-    , (3, (Day03.runA, Day03.runB)) ]
+    , (3, (Day03.runA, Day03.runB))
+    , (4, (Day04.runA, Day04.runB))
+    , (5, (Day05.runA, Day05.runB))
+    ]
 
-newtype CommandArgs = CommandArgs
-    { dayArg :: Maybe Int }
+data CommandArgs = CommandArgs
+    { dayArg :: Maybe Int
+    , runAll :: Bool }
 
 commandArgs :: Parser CommandArgs
 commandArgs = CommandArgs <$> optional
-                (  option auto
-                $  long "day" <> short 'd' 
-                <> help "run solution for this day, defaults to latest"
-                <> metavar "INT" )
+                            (  option auto
+                            $  long "day" <> short 'd' 
+                            <> help "run solution for this day, defaults to latest"
+                            <> metavar "INT" )
+                          <*> switch ( long "all" <> short 'a' <> help "Run everything" )        
 
 args :: ParserInfo CommandArgs
 args = info (commandArgs <**> helper)
@@ -33,9 +40,13 @@ args = info (commandArgs <**> helper)
 main :: IO ()
 main = runSimpleApp $ do
     args <- liftIO $ execParser args
-    let solution = maybe (fmap snd (Map.lookupMax solutions))
-                         (solutions Map.!?)
-                         (dayArg args)
-    case solution of
-        Nothing -> logInfo "NYI"
-        Just (a, b) -> a >> b
+    if runAll args then
+        mapM_ (uncurry runSolution) (Map.toList solutions)
+    else fromMaybe (logInfo "No solution for that day") $ do
+        d <- day args
+        s <- solution d
+        Just $ runSolution d s
+    where day args = (fst <$> Map.lookupMax solutions) <|> dayArg args
+          solution day = (snd <$> Map.lookupMax solutions) <|> (solutions Map.!? day)
+          runSolution n (a, b) = logInfo (display $ "Day " <> tshow n <> " ========")
+                               >> a >> b >> logInfo ""

@@ -11,7 +11,7 @@ altMap f = foldr ((<|>) . f) empty
 
 readInput :: MonadIO m => m [Int]
 readInput = do
-    text <- Text.lines <$> readFileUtf8 "data/day01a.txt"
+    text <- Text.lines <$> readFileUtf8 "data/day01.txt"
     return $ mapMaybe (readMaybe . Text.unpack) text
 
 searchNSum :: Int -> Int -> Set Int -> Maybe [Int]
