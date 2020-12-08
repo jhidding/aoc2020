@@ -33,6 +33,7 @@ executable x2020
                       Day05
                       Day06
                       Day07
+                      Day08
                       DayXX
 
     -- LANGUAGE extensions used by modules in this package.
@@ -42,6 +43,7 @@ executable x2020
                     , optparse-applicative
                     , megaparsec
                     , containers
+                    , vector
     hs-source-dirs:   app
     default-language: Haskell2010
     default-extensions:  NoImplicitPrelude OverloadedStrings RecordWildCards NamedFieldPuns
