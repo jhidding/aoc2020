@@ -1,4 +1,4 @@
-module Program.Run where
+module Program.Run (runProgram) where
 
 import RIO
 import qualified RIO.Vector as Vector
@@ -6,9 +6,7 @@ import qualified RIO.Set as Set
 import RIO.State ( MonadState(get, put), evalState, State, modify, gets )
 
 import Program.Types
-
-readInstruction :: Machine -> Maybe Instruction
-readInstruction Machine{..} = program Vector.!? cx
+    ( ProgramExitCode(..), Machine(..), Instruction(Jmp, Nop, Acc) )
 
 flagPass :: MonadState Machine m => m ()
 flagPass = modify (\m -> m { passes = Set.insert (cx m) (passes m) })

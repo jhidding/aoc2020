@@ -1,4 +1,4 @@
-module Program.Parser where
+module Program.Parser (readProgram) where
 
 import RIO
 import qualified RIO.Text as Text
@@ -14,7 +14,7 @@ import Text.Megaparsec
 import Text.Megaparsec.Char ( eol, hspace )
 import qualified Text.Megaparsec.Char.Lexer as L
 
-import Program.Types
+import Program.Types ( Program, Instruction(..) )
 
 type Parser = Parsec Void Text
 instance Display (ParseErrorBundle Text Void) where
