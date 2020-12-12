@@ -15,6 +15,7 @@ import qualified Day08
 import qualified Day09
 import qualified Day10
 import qualified Day11
+import qualified Day12
 
 solutions :: Map Int (RIO SimpleApp (), RIO SimpleApp ())
 solutions = Map.fromList
@@ -29,6 +30,7 @@ solutions = Map.fromList
     ,  (9, (Day09.runA, Day09.runB))
     , (10, (Day10.runA, Day10.runB))
     , (11, (Day11.runA, Day11.runB))
+    , (12, (Day12.runA, Day12.runB))
     ]
 
 data CommandArgs = CommandArgs
