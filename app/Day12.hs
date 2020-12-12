@@ -57,8 +57,7 @@ readInput = do
 
 data ManhattanRec = ManhattanRec
     { _mdDirection :: Int
-    , _mdEastWest :: Int
-    , _mdNorthSouth :: Int }
+    , _mdDist :: (Int, Int) }
 
 makeLenses ''ManhattanRec
 
@@ -67,8 +66,8 @@ newtype ManhattanDistance a = ManhattanDistance
     deriving (Functor, Applicative, Monad, MonadState ManhattanRec)
 
 instance Turtle ManhattanDistance where
-    goNorth = (mdNorthSouth +=)
-    goEast = (mdEastWest +=)
+    goNorth = (mdDist . _1 +=)
+    goEast = (mdDist . _2 +=)
     turnLeft x = mdDirection %= \d -> (d + x) `mod` 360
     moveForward x = use mdDirection >>= go
             where go dir | dir == 0   = goEast x
@@ -77,13 +76,11 @@ instance Turtle ManhattanDistance where
                          | dir == 270 = goSouth x
                          | otherwise  = return ()
     getManhattanDistance = gets go
-        where go m = abs (m ^. mdEastWest) + abs (m ^. mdNorthSouth)
+        where go m = abs (m ^. mdDist . _1) + abs (m ^. mdDist . _2)
 
 data WaypointRec = WaypointRec
-    { _waypointX :: Int
-    , _waypointY :: Int
-    , _waypointEast :: Int
-    , _waypointNorth :: Int }
+    { _waypointLoc  :: (Int, Int)
+    , _waypointDist :: (Int, Int) }
 
 makeLenses ''WaypointRec
 
@@ -91,34 +88,33 @@ newtype Waypoint a = Waypoint
     { runWaypoint :: State WaypointRec a }
     deriving (Functor, Applicative, Monad, MonadState WaypointRec)
 
+rotate :: Int -> (Int, Int) -> (Int, Int)
+rotate a (x, y)
+    | a == 90   = (-y,  x)
+    | a == 180  = (-x, -y)
+    | a == 270  = ( y, -x)
+    | otherwise = ( x,  y)
+
 instance Turtle Waypoint where
-    goNorth = (waypointY +=)
-    goEast = (waypointX +=)
-    turnLeft x = modify (go (x `mod` 360))
-        where go x' m
-                | x' == 90  = m & waypointX .~ -(m ^. waypointY)
-                                & waypointY .~  (m ^. waypointX)
-                | x' == 180 = m & waypointX %~ negate
-                                & waypointY %~ negate
-                | x' == 270 = m & waypointX .~  (m ^. waypointY)
-                                & waypointY .~ -(m ^. waypointX)
-                | otherwise = m
+    goEast = (waypointLoc . _1 +=)
+    goNorth = (waypointLoc . _2 +=)
+    turnLeft x = waypointLoc %= rotate (x `mod` 360)
     moveForward x = modify go
-        where go m = m & waypointEast  +~ (x * (m ^. waypointX))
-                       & waypointNorth +~ (x * (m ^. waypointY))
+        where go m = m & (waypointDist . _1) +~ (x * (m ^. waypointLoc . _1))
+                       & (waypointDist . _2) +~ (x * (m ^. waypointLoc . _2))
     getManhattanDistance = gets go
-        where go m = abs (m ^. waypointEast) + abs (m ^. waypointNorth)
+        where go m = abs (m ^. waypointDist . _1) + abs (m ^. waypointDist . _2)
 
 runA :: (HasLogFunc env) => RIO env ()
 runA = do
     program <- readInput
     let result = evalState (runMD $ sequence_ program >> getManhattanDistance)
-                           (ManhattanRec 0 0 0)
+                           (ManhattanRec 0 (0, 0))
     logInfo $ display $ tshow result
 
 runB :: (HasLogFunc env) => RIO env ()
 runB = do
     program <- readInput
     let result = evalState (runWaypoint $ sequence_ program >> getManhattanDistance)
-                           (WaypointRec 10 1 0 0)
+                           (WaypointRec (10, 1) (0, 0))
     logInfo $ display $ tshow result
