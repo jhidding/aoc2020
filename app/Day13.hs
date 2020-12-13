@@ -32,9 +32,12 @@ earliestBus t busses = List.Partial.minimumBy (compare `on` snd) nextTimes
     where nextTimes = map nextTime busses
           nextTime n = (n, n - t `mod` n)
 
+validateTimestamp :: Integer -> [(Integer, Integer)] -> Bool
+validateTimestamp t = all (\(d, f) -> (t + d) `mod` f == 0)
+
 findTimestamp :: Integer -> Integer -> [(Integer, Integer)] -> Integer
 findTimestamp start _    [] = start
-findTimestamp start step ((d, f) : rest) = findTimestamp hit (step * f) rest
+findTimestamp start step ((d, f) : rest) = findTimestamp hit (lcm step f) rest
         where fit t = (t + d) `mod` f == 0
               hit = List.Partial.head $ filter fit [start, start+step ..]
 
@@ -49,4 +52,5 @@ runB = do
     (_, busses) <- readInput
     let delays = catMaybes $ zipWith (\a b -> (a,) <$> b) 
                              [0..] (map (fmap fromIntegral) busses)
+    -- logInfo $ display $ tshow $ validateTimestamp (findTimestamp 0 1 delays) delays
     logInfo $ display $ tshow $ findTimestamp 0 1 delays
