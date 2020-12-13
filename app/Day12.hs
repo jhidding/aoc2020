@@ -2,11 +2,12 @@
 module Day12 where
 
 import RIO hiding (try)
--- import RIO.Lens
 import Lens.Micro.Platform
+    ( (+~), (%=), (+=), use, makeLenses, _1, _2 )
 
 import qualified RIO.Text as Text
 import RIO.State
+    ( MonadState, State, gets, modify, evalState )
 
 import Text.Megaparsec
     ( parse,
@@ -16,7 +17,7 @@ import Text.Megaparsec
       MonadParsec(try),
       ParseErrorBundle )
 import Text.Megaparsec.Char ( char, eol )
-import Text.Megaparsec.Char.Lexer (decimal)
+import Text.Megaparsec.Char.Lexer ( decimal )
 
 type Parser = Parsec Void Text
 instance Display (ParseErrorBundle Text Void) where
