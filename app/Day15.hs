@@ -51,12 +51,12 @@ data Turn = Turn
 
 nextNumber'' :: Turn -> Turn
 nextNumber'' Turn{..} = Turn
-    { memory = Map.insert last (- turn) memory
+    { memory = Map.insert last turn memory
     , turn = turn + 1
-    , last = maybe 0 (+ turn) (memory Map.!? last) }
+    , last = maybe 0 (turn -) (memory Map.!? last) }
 
 nThNumber'' :: [Int] -> Int -> Int -> Int
-nThNumber'' nums turn' n = go Turn { memory = Map.fromList (zip nums [-turn'..])
+nThNumber'' nums turn' n = go Turn { memory = Map.fromList (zip nums [1..])
                                    , turn = turn' + 1, last = 0 }
     where go t
             | turn t == n = last t
@@ -70,4 +70,5 @@ runA = do
 runB :: (HasLogFunc env) => RIO env ()
 runB =  do
     x <- readInput
-    logInfo $ display $ tshow $ nThNumber'' (reverse x) (length x) 30000000
+    logInfo $ display $ tshow $ nThNumber'' x (length x) 2020
+    logInfo $ display $ tshow $ nThNumber'' x (length x) 30000000
