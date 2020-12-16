@@ -58,9 +58,19 @@ nextNumber'' Turn{..} = Turn
 nThNumber'' :: [Int] -> Int -> Int -> Int
 nThNumber'' nums turn' n = go Turn { memory = Map.fromList (zip nums [1..])
                                    , turn = turn' + 1, last = 0 }
-    where go t
+    where go :: Turn -> Int
+          go t
             | turn t == n = last t
             | otherwise   = go $ nextNumber'' t
+
+-- data Turn2 = Turn2
+--     { memory2 :: UVector Int
+--     , turn2 :: Int
+--     , last2 :: Int }
+
+-- nextNumber2 :: Turn -> ST s Turn
+-- nextNumber2 Turn2{..} = do
+--     read last2
 
 runA :: (HasLogFunc env) => RIO env ()
 runA = do
