@@ -7,7 +7,8 @@ import RIO.List.Partial (head)
 import qualified RIO.Text as Text
 import qualified RIO.List as List
 import qualified RIO.Map as Map
-import Lens.Micro.Platform ( (.=), use, makeLenses )
+import qualified RIO.Map.Partial as Map.Partial
+import Lens.Micro.Platform ( _1, _2, (.=), use )
 
 import Text.Megaparsec
     ( parse,
@@ -19,6 +20,7 @@ import Text.Megaparsec
       ParseErrorBundle )
 import Text.Megaparsec.Char ( char, string, eol )
 import Text.Megaparsec.Char.Lexer ( decimal )
+import Data.Tuple (swap)
 
 type Parser = Parsec Void Text
 instance Display (ParseErrorBundle Text Void) where
@@ -84,66 +86,56 @@ runA = do
                                   (concat nearbyTickets)
     logInfo $ display error_rate
 
-data MatchState = MatchState
-    { _msRanges :: Map Text TicketRange
-    , _msTickets :: [[Int]] }
+findMatch :: (a -> b -> Bool) -> [a] -> [b] -> [(a, b)]
+findMatch pred as bs = evalState go (as, bs)
+    where go = do p <- stop
+                  if p then return []
+                  else do i <- matchObvious pred
+                          j <- map swap <$> swapped (matchObvious $ flip pred)
+                          k <- go
+                          return $ concat [i, j, k]
 
-makeLenses ''MatchState
+          -- Runs an action with the state tuple swapped
+          swapped :: State (x, y) a -> State (y, x) a
+          swapped action = do
+              (x, s') <- runState action . swap <$> get
+              put (swap s')
+              return x
 
-matchSingleProp :: MonadState MatchState m => [Int] -> m (Either [Int] (Text, [Int]))
-matchSingleProp nums = do
-    ranges <- use msRanges
-    let (m, n) = List.partition (\(_ ,v) -> all (`inTicketRange` v) nums)
-                                (Map.toList ranges)
-    case m of
-        [(k,_)] -> do msRanges .= Map.fromList n
-                      return $ Right (k, nums)
-        _       -> return $ Left nums
+          -- If the computation is ended
+          stop :: State ([a], [b]) Bool
+          stop = use (_1 . to null)
 
-matchProps :: MonadState MatchState m => m [(Text, [Int])]
-matchProps = do
-    nums <- use msTickets
-    lst <- mapM matchSingleProp nums
-    msTickets .= lefts lst
-    return $ rights lst
-
-matchSingleTicket :: MonadState MatchState m 
-                  => (Text, TicketRange) -> m (Either (Text, TicketRange) (Text, [Int]))
-matchSingleTicket (k, v) = do
-    nums <- use msTickets
-    let (m, n) = List.partition (all (`inTicketRange` v)) nums
-    case m of
-        [a] -> do msTickets .= n
-                  return $ Right (k, a)
-        _   -> return $ Left (k, v)
-
-matchTickets :: MonadState MatchState m => m [(Text, [Int])]
-matchTickets = do
-    lst <- mapM matchSingleTicket =<< (Map.toList <$> use msRanges)
-    msRanges .= Map.fromList (lefts lst)
-    return $ rights lst
-
-matchDone :: MonadState MatchState m => m Bool
-matchDone = null <$> use msTickets
-
-matchAllProps :: Map Text TicketRange -> [[Int]] -> Map Text [Int]
-matchAllProps r t = Map.fromList $ evalState go $ MatchState r t
-    where go = do
-            p <- matchDone
-            if p then return []
-            else do
-                a <- matchProps
-                b <- matchTickets
-                c <- go
-                return $ concat [a, b, c]
+          -- Match obvious pairs: takes from first list those elements that have only
+          -- one match in the second list
+          matchObvious :: (a -> b -> Bool) -> State ([a], [b]) [(a, b)]
+          matchObvious pred = do
+              lst <- mapM (matchSingle pred) =<< use _1
+              _1 .= lefts lst
+              return $ rights lst
+          
+          matchSingle :: (a -> b -> Bool) -> a -> State ([a], [b]) (Either a (a, b))
+          matchSingle pred a = do
+              (m, n) <- List.partition (pred a) <$> use _2
+              case m of
+                  [b] -> do _2 .= n
+                            return $ Right (a, b)
+                  _   -> return $ Left a
 
 runB :: (HasLogFunc env) => RIO env ()
 runB = do
     TicketData{..} <- readInput
     let valid_tickets = filter (all (\n -> any (inTicketRange n) (Map.elems ticketRanges)))
                                nearbyTickets
+        -- transpose numbers
         prop_nums = List.transpose (yourTicket : valid_tickets)
-        matched = matchAllProps ticketRanges prop_nums
-        departure = Map.filterWithKey (\k _ -> "departure" `Text.isPrefixOf` k) matched
-        result = foldl' (*) 1 $ map head $ Map.elems departure
+        -- predicate that should hold for a property name and a list of values
+        pred prop = all (\n -> inTicketRange n (ticketRanges Map.Partial.! prop))
+        -- matched property names with values
+        matched = findMatch pred (Map.keys ticketRanges) prop_nums
+        -- fetch properties that start with "departure"
+        departures = filter (\(k, _) -> "departure" `Text.isPrefixOf` k) matched
+        -- compute product
+        result = foldl' (*) 1 $ map (head . snd) departures
+
     logInfo $ display result
