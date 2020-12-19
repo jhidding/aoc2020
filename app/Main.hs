@@ -74,7 +74,7 @@ main = runSimpleApp $ do
         d <- day args
         s <- solution d
         Just $ runSolution d s
-    where day args = (fst <$> Map.lookupMax solutions) <|> dayArg args
-          solution day = (snd <$> Map.lookupMax solutions) <|> (solutions Map.!? day)
+    where day args = dayArg args <|> (fst <$> Map.lookupMax solutions)
+          solution day = (solutions Map.!? day) <|> (snd <$> Map.lookupMax solutions)
           runSolution n (a, b) = logInfo (display $ "Day " <> tshow n <> " ========")
                                >> a >> b >> logInfo ""

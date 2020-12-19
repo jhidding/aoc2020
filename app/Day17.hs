@@ -1,11 +1,9 @@
-{-# LANGUAGE QuasiQuotes #-}
 module Day17 where
 
 import RIO
 import qualified RIO.Text as Text
 import qualified RIO.List as List
-import qualified RIO.Map as Map
-import RIO.List.Partial (head, tail, (!!))
+import RIO.List.Partial ((!!))
 
 import qualified Data.Massiv.Array as A
 import Data.Massiv.Array (Padding(..), Sz(..), Border(..), idStencil, sumStencil)

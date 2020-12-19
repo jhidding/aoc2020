@@ -1,14 +1,13 @@
+{-# LANGUAGE TupleSections #-}
 module Day19 where
 
 import RIO hiding (try)
 import qualified RIO.Text as Text
-import qualified RIO.List as List
 import qualified RIO.Map as Map
 import qualified RIO.Map.Partial as Map.Partial
-import RIO.List.Partial (head)
 
 import Text.Megaparsec
-    ( parse, errorBundlePretty, sepBy1, sepEndBy1, Parsec, ParseErrorBundle, try, anySingle, takeWhile1P )
+    ( parse, errorBundlePretty, sepBy1, sepEndBy1, Parsec, ParseErrorBundle, try, anySingle, takeWhile1P, choice, lookAhead )
 import Text.Megaparsec.Char ( char, hspace, eol, string )
 import qualified Text.Megaparsec.Char.Lexer as L
 
@@ -23,7 +22,10 @@ data Rule
 
 type Rules = Map Int Rule
 
+lexeme :: Parser a -> Parser a
 lexeme = L.lexeme hspace
+
+integer :: Parser Int
 integer = lexeme L.decimal
 
 rule :: Parser (Int, Rule)
@@ -37,19 +39,52 @@ rule = do
 rules :: Parser Rules
 rules = Map.fromList <$> rule `sepEndBy1` eol
 
-messages :: Parser [Text]
-messages = takeWhile1P Nothing (`elem` ['a', 'b']) `sepEndBy1` eol
+message :: Parser Text
+message = takeWhile1P Nothing (`elem` ['a', 'b'])
 
-readInput :: (MonadReader env m, MonadIO m, HasLogFunc env) => Parser a -> m a
-readInput p = do
-    x <- parse p "data/day19.txt" <$> readFileUtf8 "data/day19.txt"
+ruleToParser :: Rules -> Rule -> Parser Text
+ruleToParser _ (CharRule c) = Text.singleton <$> char c
+ruleToParser rs (SubRule r) = chcRules r
+    where seqRules xs = Text.concat <$> mapM (ruleToParser rs . (rs Map.Partial.!)) xs
+          chcRules ys = choice (map (try . seqRules) ys)
+
+ruleToParser' :: Rules -> [Rule] -> Text -> Parser Text
+ruleToParser' _  []              pre = return pre
+ruleToParser' rs (CharRule c:ps) pre = do
+    pre' <- Text.snoc pre <$> char c
+    ruleToParser' rs ps pre'
+ruleToParser' rs (SubRule r:ps)  pre = choice (map seqRules r)
+    where seqRules :: [Int] -> Parser Text
+          seqRules xs = try $ ruleToParser' rs (map (rs Map.Partial.!) xs <> ps) pre
+
+readInput :: (MonadReader env m, MonadIO m, HasLogFunc env) => FilePath -> Parser a -> m a
+readInput file p = do
+    x <- parse p file <$> readFileUtf8 file
     either (\e -> do { logError $ display e; exitFailure })
            return x
 
+completeLine :: Parser a -> Parser a
+completeLine p = do
+    x <- p
+    lookAhead eol
+    return x
+
 runA :: (HasLogFunc env) => RIO env ()
 runA = do
-    (r, m) <- readInput (do { x <- rules; eol; y <- messages; return (x, y) })
-    logInfo $ display $ tshow (r, m)
+    m <- readInput "data/day19.txt" $ do
+        r <- rules
+        eol
+        let p = completeLine $ ruleToParser r (r Map.Partial.! 0)
+        y <- (try (Just <$> p) <|> (Nothing <$ message)) `sepEndBy1` eol
+        return $ catMaybes y
+    logInfo $ display $ length m
 
 runB :: (HasLogFunc env) => RIO env ()
-runB = logInfo "NYI"
+runB =  do
+    m <- readInput "data/day19-alt.txt" $ do
+        r <- rules
+        eol
+        let p = completeLine $ ruleToParser' r [r Map.Partial.! 0] ""
+        y <- (try (Just <$> p) <|> (Nothing <$ message)) `sepEndBy1` eol
+        return $ catMaybes y
+    logInfo $ display $ length m

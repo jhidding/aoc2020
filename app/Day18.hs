@@ -15,12 +15,17 @@ type Parser = Parsec Void Text
 instance Display (ParseErrorBundle Text Void) where
     textDisplay = Text.pack . errorBundlePretty
 
+lexeme :: Parser a -> Parser a
 lexeme = L.lexeme hspace
+
+number :: Parser Int
 number = lexeme L.decimal
 
-operator :: Parser (Int -> Int -> Int)
-operator =  ((+) <$ lexeme (char '+'))
-        <|> ((*) <$ lexeme (char '*'))
+mul :: Parser (Int -> Int -> Int)
+mul = (*) <$ lexeme (char '*')
+
+add :: Parser (Int -> Int -> Int)
+add = (+) <$ lexeme (char '+')
 
 parenExpr :: Parser Int -> Parser Int
 parenExpr expr = do
@@ -29,38 +34,25 @@ parenExpr expr = do
     _ <- lexeme (char ')')
     return x
 
-expr :: Parser Int
-expr = do
-    a <- try number <|> parenExpr expr
+expr :: Parser Int -> Parser Int -> Parser (Int -> Int -> Int) -> Parser Int
+expr lower total operator = do
+    a <- try lower <|> parenExpr total
     cont a
     where cont a = do
             op <- optional operator
             case op of
                 Nothing -> return a
-                Just op' -> do b <- try number <|> parenExpr expr
+                Just op' -> do b <- try lower <|> parenExpr total
                                cont (op' a b)
 
-sumExpr :: Parser Int
-sumExpr = do
-    a <- try number <|> parenExpr mulExpr
-    cont a
-    where cont a = do
-            op <- optional ((+) <$ lexeme (char '+'))
-            case op of
-                Nothing -> return a
-                Just op' -> do b <- try number <|> parenExpr mulExpr
-                               cont (op' a b)
+expr1 :: Parser Int
+expr1 = expr number expr1 (add <|> mul)
+
+addExpr :: Parser Int
+addExpr = expr number mulExpr add
 
 mulExpr :: Parser Int
-mulExpr = do
-    a <- try sumExpr <|> parenExpr mulExpr
-    cont a
-    where cont a = do
-            op <- optional ((*) <$ lexeme (char '*'))
-            case op of
-                Nothing -> return a
-                Just op' -> do b <- try sumExpr <|> parenExpr mulExpr
-                               cont (op' a b)
+mulExpr = expr addExpr mulExpr mul
 
 readInput :: (MonadReader env m, MonadIO m, HasLogFunc env) => Parser [Int] -> m [Int]
 readInput p = do
@@ -70,7 +62,7 @@ readInput p = do
 
 runA :: (HasLogFunc env) => RIO env ()
 runA = do
-    x <- readInput (expr `sepEndBy1` eol)
+    x <- readInput (expr1 `sepEndBy1` eol)
     logInfo $ display $ sum x
 
 runB :: (HasLogFunc env) => RIO env ()
