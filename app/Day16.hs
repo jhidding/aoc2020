@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 module Day16 where
 
 import RIO
@@ -118,8 +117,7 @@ findMatch pred as bs = evalState go (as, bs)
           matchSingle pred a = do
               (m, n) <- List.partition (pred a) <$> use _2
               case m of
-                  [b] -> do _2 .= n
-                            return $ Right (a, b)
+                  [b] -> _2 .= n >> return (Right (a, b))
                   _   -> return $ Left a
 
 runB :: (HasLogFunc env) => RIO env ()

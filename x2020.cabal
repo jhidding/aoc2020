@@ -46,6 +46,9 @@ executable x2020
                       Day14
                       Day15
                       Day16
+                      Day17
+                      Day18
+                      Day19
                       DayXX
 
     -- LANGUAGE extensions used by modules in this package.
@@ -58,6 +61,7 @@ executable x2020
                     , vector
                     , repa
                     , microlens-platform
+                    , massiv
                     
     hs-source-dirs:   app
     default-language: Haskell2010
