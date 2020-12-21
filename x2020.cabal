@@ -49,6 +49,8 @@ executable x2020
                       Day17
                       Day18
                       Day19
+                      Day20
+                      Day21
                       DayXX
 
     -- LANGUAGE extensions used by modules in this package.
