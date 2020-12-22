@@ -10,20 +10,11 @@ import qualified RIO.Map.Partial as Map.Partial
 import Lens.Micro.Platform ( _1, _2, (.=), use )
 
 import Text.Megaparsec
-    ( parse,
-      errorBundlePretty,
-      sepBy1,
-      sepEndBy1,
-      Parsec,
-      MonadParsec(takeWhile1P),
-      ParseErrorBundle )
-import Text.Megaparsec.Char ( char, string, eol )
-import Text.Megaparsec.Char.Lexer ( decimal )
+    ( MonadParsec(takeWhile1P) )
 import Data.Tuple (swap)
 
-type Parser = Parsec Void Text
-instance Display (ParseErrorBundle Text Void) where
-    textDisplay = Text.pack . errorBundlePretty
+import Parsing
+    ( sepBy1, sepEndBy1, char, eol, string, Parser, readInput, integer, lexeme )
 
 type Range = (Int, Int)
 type TicketRange = (Range, Range)
@@ -37,17 +28,17 @@ data TicketData = TicketData
 
 range :: Parser Range
 range = do
-    x <- decimal
+    x <- integer
     _ <- char '-'
-    y <- decimal
+    y <- integer
     return (x, y)
 
 ticketRange :: Parser (Text, TicketRange)
 ticketRange = do
     name <- takeWhile1P Nothing (not . (`elem` ['\n', ':']))
-    _ <- string ": "
+    _ <- lexeme $ string ":"
     a <- range
-    _ <- string " or "
+    _ <- lexeme $ string "or"
     b <- range
     return (name, (a, b))
 
@@ -55,7 +46,7 @@ ticketRangeMap :: Parser (Map Text TicketRange)
 ticketRangeMap = Map.fromList <$> ticketRange `sepEndBy1` eol
 
 intList :: Parser [Int]
-intList = decimal `sepBy1` char ','
+intList = integer `sepBy1` char ','
 
 ticketData :: Parser TicketData
 ticketData = do
@@ -66,12 +57,6 @@ ticketData = do
     nearbyTickets <- intList `sepEndBy1` eol
     return TicketData{..}
 
-readInput :: (MonadReader env m, MonadIO m, HasLogFunc env) => m TicketData
-readInput = do
-    x <- parse ticketData "data/day16.txt" <$> readFileUtf8 "data/day16.txt"
-    either (\e -> do { logError $ display e; exitFailure })
-           return x
-
 inRange :: Int -> Range -> Bool
 inRange n (a, b) = a <= n && n <= b
 
@@ -80,7 +65,7 @@ inTicketRange n (r1, r2) = inRange n r1 || inRange n r2
 
 runA :: (HasLogFunc env) => RIO env ()
 runA = do
-    TicketData{..} <- readInput
+    TicketData{..} <- readInput "data/day16.txt" ticketData
     let error_rate = sum $ filter (\n -> not $ any (inTicketRange n) (Map.elems ticketRanges)) 
                                   (concat nearbyTickets)
     logInfo $ display error_rate
@@ -122,7 +107,7 @@ findMatch pred as bs = evalState go (as, bs)
 
 runB :: (HasLogFunc env) => RIO env ()
 runB = do
-    TicketData{..} <- readInput
+    TicketData{..} <- readInput "data/day16.txt" ticketData
     let valid_tickets = filter (all (\n -> any (inTicketRange n) (Map.elems ticketRanges)))
                                nearbyTickets
         -- transpose numbers

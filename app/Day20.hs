@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 module Day20 where
 
 import RIO hiding (try)
@@ -13,27 +14,13 @@ import RIO.List.Partial (head)
 import Data.Tuple (swap)
 import Lens.Micro.Platform ( _1, _2, (.=), use, at, (%=) )
 
-import Text.Megaparsec
-    ( parse, errorBundlePretty, sepBy1, sepEndBy1, Parsec, ParseErrorBundle, try, anySingle, takeWhile1P, choice, lookAhead )
-import Text.Megaparsec.Char ( char, hspace, eol, string )
 import qualified Text.Megaparsec.Char.Lexer as L
-
+import Parsing ( sepEndBy1, char, eol, string, Parser, readInput )
 import qualified Data.Massiv.Array as A
-import Data.Massiv.Array (Sz(..))
-
-type Parser = Parsec Void Text
-instance Display (ParseErrorBundle Text Void) where
-    textDisplay = Text.pack . errorBundlePretty
 
 type Grid2 = A.Array A.U A.Ix2 Int
 type Grid2' r = A.Array r A.Ix2 Int
 type EdgeSlice = A.Array A.M A.Ix1 Int
-
-readInput :: (MonadReader env m, MonadIO m, HasLogFunc env) => FilePath -> Parser a -> m a
-readInput file p = do
-    x <- parse p file <$> readFileUtf8 file
-    either (\e -> do { logError $ display e; exitFailure })
-           return x
 
 tile :: Parser (Int, Grid2)
 tile = do
@@ -102,6 +89,17 @@ orientGrid o
     | o == 6 = A.reverse A.Dim1
     | o == 7 = A.transpose
 
+matchEdge' :: Edge' -> Edge' -> Maybe Int
+matchEdge' (Edge' o1 e1) (Edge' o2 e2)
+    | A.eqArrays (==) e1 e2 = Just getOrientation
+    | A.eqArrays (==) e1 (A.reverse A.Dim1 e2) = Just getRevOrientation
+    | otherwise = Nothing
+    where getOrientation = oMatrix A.! (o1 A.:. o2)
+          getRevOrientation = (getOrientation + 4) `mod` 8
+          oMatrix :: A.Array A.U A.Ix2 Int
+          oMatrix = A.fromLists' A.Seq
+            [[6, 5, 0, 3], [7, 4, 1, 0], [0, 3, 6, 5], [1, 0, 7, 4]]
+
 placeTile :: MonadState Tessellation m => Int -> Orientation -> (Int, Int) -> m ()
 placeTile i o p = do
     tile <- use (tileMap . at i)
@@ -122,16 +120,36 @@ getGridEdge p o = do
     g <- use (tileGrid . at p)
     return $ Edge' o <$> (edgeData' o <$> g)
 
-freeEdges :: MonadState Tessellation m => m [Edge']
-freeEdges = do
-    p <- use (tileGrid . to Map.keys)
-    let es = filter ((`List.notElem` p) . uncurry neighbour) ((,) <$> p <*> [0..3])
-    mapMaybeM (uncurry getGridEdge) es
+freeEdges :: Map k Grid2 -> [(k, Edge')]
+freeEdges m =
+    concatMap (\(i, g) -> map (\o -> (i, Edge' o (edgeData' o g))) [0..3])
+              (Map.toList m)
 
-edgePlacement :: Edge -> Orientation -> Int
-edgePlacement (Edge _ e) o
-    | o < 4     = (e + o) `mod` 4
-    | otherwise = (o - e) `mod` 4
+singleMatch :: [a] -> Maybe a
+singleMatch [x] = Just x
+singleMatch _   = Nothing
+
+step :: MonadState Tessellation m => m ()
+step = do
+    tileEdges <- use (tileMap . to freeEdges)
+    gm <- use tileGrid
+    let trEdge (p, e@(Edge' o _)) = (neighbour p o, e)
+        gridEdges = filter (\(p, _) -> p `Map.notMember` gm) (map trEdge $ freeEdges gm)
+        fm ge = singleMatch $ mapMaybe (\(i, te) -> (i,) <$> matchEdge' ge te) tileEdges
+        sols = List.nub $ mapMaybe (\(p, ge) -> (p,) <$> fm ge) gridEdges
+        place (p, (i, o)) = placeTile i o p
+    traceM (tshow sols)
+    mapM_ place sols
+
+solve :: MonadState Tessellation m => m (Map (Int, Int) Grid2)
+solve = do
+    done <- use (tileMap . to Map.null)
+    if done then use tileGrid else step >> solve
+
+firstStep :: MonadState Tessellation m => m ()
+firstStep = do
+    first <- use (tileMap . to Map.keys . to head)
+    placeTile first 0 (0, 0)
 
 runA :: (HasLogFunc env) => RIO env ()
 runA = do
@@ -144,4 +162,5 @@ runA = do
 runB :: (HasLogFunc env) => RIO env ()
 runB = do
     tm <- readInput "data/day20.txt" (Map.fromList <$> tile `sepEndBy1` eol)
-    logInfo $ display $ tshow tm
+    let grid = evalState (firstStep >> solve) (Tessellation tm Map.empty)
+    logInfo $ display $ tshow grid
