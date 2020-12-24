@@ -31,6 +31,7 @@ executable x2020
                       Program.Parser
                       Program
                       Parsing
+                      Coordinates
                       Day01
                       Day02
                       Day03
@@ -54,6 +55,7 @@ executable x2020
                       Day21
                       Day22
                       Day23
+                      Day24
                       DayXX
 
     -- LANGUAGE extensions used by modules in this package.
